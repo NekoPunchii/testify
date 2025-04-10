@@ -23,7 +23,7 @@ if not pcall(function() return syn.protect_gui end) then
 end
 
 --// UI Library \\--
-local Library = loadstring(game:HttpGetAsync('https://pastebinp.com/raw/ALNp51w4'))()
+local Library = loadstring(game:HttpGetAsync('https://raw.githubusercontent.com/NekoPunchii/testify/refs/heads/main/libraryto'))()
 local Window = Library:CreateWindow("AutoClicker by Neko")
 Enabled_1 = Window:AddColor({
     text = 'Status:',
