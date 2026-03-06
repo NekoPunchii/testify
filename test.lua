@@ -1,10 +1,10 @@
 --[[
-    Nexus UI Library v1.0
+    Nexus UI Library v1.1 (Fixed)
     A modern, feature-rich UI library for Roblox exploits
 ]]
 
 local NexusUI = {}
-NexusUI.Version = "1.0.0"
+NexusUI.Version = "1.1.0"
 NexusUI.Windows = {}
 NexusUI.ConfigFolder = "NexusUI"
 
@@ -23,6 +23,7 @@ local Mouse = Player:GetMouse()
 local Utility = {}
 
 function Utility:Tween(Object, Properties, Duration, Style, Direction)
+    if not Object or not Object.Parent then return end
     Style = Style or Enum.EasingStyle.Quad
     Direction = Direction or Enum.EasingDirection.Out
     Duration = Duration or 0.3
@@ -88,16 +89,6 @@ function Utility:AddStroke(Parent, Color, Thickness)
     return Stroke
 end
 
-function Utility:CreatePadding(Parent, Padding)
-    local UIPadding = Instance.new("UIPadding")
-    UIPadding.PaddingTop = UDim.new(0, Padding)
-    UIPadding.PaddingBottom = UDim.new(0, Padding)
-    UIPadding.PaddingLeft = UDim.new(0, Padding)
-    UIPadding.PaddingRight = UDim.new(0, Padding)
-    UIPadding.Parent = Parent
-    return UIPadding
-end
-
 function Utility:RippleEffect(Button, Color)
     Color = Color or Color3.fromRGB(255, 255, 255)
     Button.ClipsDescendants = true
@@ -131,7 +122,9 @@ function Utility:RippleEffect(Button, Color)
         }, 0.5)
         
         task.delay(0.5, function()
-            Ripple:Destroy()
+            if Ripple and Ripple.Parent then
+                Ripple:Destroy()
+            end
         end)
     end)
 end
@@ -189,71 +182,6 @@ NexusUI.Themes = {
 }
 
 NexusUI.CurrentTheme = NexusUI.Themes.Dark
-
---[[ CONFIG SYSTEM ]]--
-local ConfigSystem = {}
-
-function ConfigSystem:EnsureFolder()
-    if isfolder and not isfolder(NexusUI.ConfigFolder) then
-        makefolder(NexusUI.ConfigFolder)
-    end
-end
-
-function ConfigSystem:GetPath(Name)
-    return NexusUI.ConfigFolder .. "/" .. Name .. ".json"
-end
-
-function ConfigSystem:Save(Name, Data)
-    self:EnsureFolder()
-    local Success, Error = pcall(function()
-        local Encoded = HttpService:JSONEncode(Data)
-        writefile(self:GetPath(Name), Encoded)
-    end)
-    return Success
-end
-
-function ConfigSystem:Load(Name)
-    local Path = self:GetPath(Name)
-    if not isfile or not isfile(Path) then
-        return nil
-    end
-    
-    local Success, Result = pcall(function()
-        local Content = readfile(Path)
-        return HttpService:JSONDecode(Content)
-    end)
-    
-    if Success then
-        return Result
-    end
-    return nil
-end
-
-function ConfigSystem:Delete(Name)
-    local Path = self:GetPath(Name)
-    if isfile and isfile(Path) then
-        delfile(Path)
-        return true
-    end
-    return false
-end
-
-function ConfigSystem:GetConfigs()
-    self:EnsureFolder()
-    local Configs = {}
-    
-    if listfiles then
-        local Files = listfiles(NexusUI.ConfigFolder)
-        for _, File in ipairs(Files) do
-            local Name = File:match("([^/\\]+)%.json$")
-            if Name then
-                table.insert(Configs, Name)
-            end
-        end
-    end
-    
-    return Configs
-end
 
 --[[ NOTIFICATION SYSTEM ]]--
 local NotificationSystem = {}
@@ -368,20 +296,25 @@ function NotificationSystem:Notify(Config)
     CloseBtn.TextTransparency = 1
     CloseBtn.Parent = Notification
     
-    -- Animate in
     Utility:Tween(Notification, {BackgroundTransparency = 0}, 0.3)
     Utility:Tween(Title, {TextTransparency = 0}, 0.3)
     Utility:Tween(Description, {TextTransparency = 0}, 0.3)
     Utility:Tween(CloseBtn, {TextTransparency = 0}, 0.3)
     
+    local Closed = false
     local function Close()
+        if Closed then return end
+        Closed = true
+        
         Utility:Tween(Notification, {BackgroundTransparency = 1}, 0.3)
         Utility:Tween(Title, {TextTransparency = 1}, 0.3)
         Utility:Tween(Description, {TextTransparency = 1}, 0.3)
         Utility:Tween(CloseBtn, {TextTransparency = 1}, 0.3)
         
         task.wait(0.3)
-        Notification:Destroy()
+        if Notification and Notification.Parent then
+            Notification:Destroy()
+        end
         self.Active = self.Active - 1
         
         if #self.Queue > 0 then
@@ -404,20 +337,17 @@ function NexusUI:CreateWindow(Config)
     Config.ToggleKey = Config.ToggleKey or Enum.KeyCode.RightControl
     Config.Size = Config.Size or {550, 400}
     
-    -- Apply theme
     if NexusUI.Themes[Config.Theme] then
         NexusUI.CurrentTheme = NexusUI.Themes[Config.Theme]
     end
     
     local Theme = NexusUI.CurrentTheme
     
-    -- Create ScreenGui
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "NexusUI"
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.ResetOnSpawn = false
     
-    -- Parent to appropriate location
     if gethui then
         ScreenGui.Parent = gethui()
     elseif syn and syn.protect_gui then
@@ -427,7 +357,6 @@ function NexusUI:CreateWindow(Config)
         ScreenGui.Parent = CoreGui
     end
     
-    -- Initialize notifications
     NotificationSystem:Init(ScreenGui)
     
     -- Loading Screen
@@ -447,6 +376,7 @@ function NexusUI:CreateWindow(Config)
     LoadingTitle.TextColor3 = Theme.Text
     LoadingTitle.Font = Enum.Font.GothamBold
     LoadingTitle.TextSize = 28
+    LoadingTitle.ZIndex = 101
     LoadingTitle.Parent = LoadingFrame
     
     local LoadingSubtitle = Instance.new("TextLabel")
@@ -457,22 +387,27 @@ function NexusUI:CreateWindow(Config)
     LoadingSubtitle.TextColor3 = Theme.SubText
     LoadingSubtitle.Font = Enum.Font.Gotham
     LoadingSubtitle.TextSize = 16
+    LoadingSubtitle.ZIndex = 101
     LoadingSubtitle.Parent = LoadingFrame
     
-    -- Loading animation
     task.spawn(function()
         local Dots = {".", "..", "..."}
         for i = 1, 9 do
+            if not LoadingSubtitle or not LoadingSubtitle.Parent then break end
             LoadingSubtitle.Text = Config.LoadingSubtitle .. Dots[(i % 3) + 1]
             task.wait(0.25)
         end
         
-        Utility:Tween(LoadingFrame, {BackgroundTransparency = 1}, 0.5)
-        Utility:Tween(LoadingTitle, {TextTransparency = 1}, 0.5)
-        Utility:Tween(LoadingSubtitle, {TextTransparency = 1}, 0.5)
-        
-        task.wait(0.5)
-        LoadingFrame:Destroy()
+        if LoadingFrame and LoadingFrame.Parent then
+            Utility:Tween(LoadingFrame, {BackgroundTransparency = 1}, 0.5)
+            Utility:Tween(LoadingTitle, {TextTransparency = 1}, 0.5)
+            Utility:Tween(LoadingSubtitle, {TextTransparency = 1}, 0.5)
+            
+            task.wait(0.5)
+            if LoadingFrame and LoadingFrame.Parent then
+                LoadingFrame:Destroy()
+            end
+        end
     end)
     
     -- Main Window
@@ -495,7 +430,6 @@ function NexusUI:CreateWindow(Config)
     TopBar.BorderSizePixel = 0
     TopBar.Parent = MainWindow
     
-    -- Top corners only
     local TopCorner = Instance.new("UICorner")
     TopCorner.CornerRadius = UDim.new(0, 10)
     TopCorner.Parent = TopBar
@@ -507,7 +441,6 @@ function NexusUI:CreateWindow(Config)
     TopCover.BorderSizePixel = 0
     TopCover.Parent = TopBar
     
-    -- Title
     local TitleLabel = Instance.new("TextLabel")
     TitleLabel.Name = "Title"
     TitleLabel.Size = UDim2.new(1, -100, 1, 0)
@@ -552,7 +485,6 @@ function NexusUI:CreateWindow(Config)
     
     Utility:CreateCorner(MinimizeButton, 8)
     
-    -- Make draggable
     Utility:MakeDraggable(MainWindow, TopBar)
     
     -- Sidebar
@@ -593,7 +525,7 @@ function NexusUI:CreateWindow(Config)
     
     Utility:CreateCorner(ContentHolder, 8)
     
-    -- Window State
+    -- Window Object
     local Window = {}
     Window.ScreenGui = ScreenGui
     Window.MainWindow = MainWindow
@@ -602,11 +534,13 @@ function NexusUI:CreateWindow(Config)
     Window.Tabs = {}
     Window.ActiveTab = nil
     Window.Minimized = false
-    Window.OriginalSize = MainWindow.Size
+    Window.OriginalSize = UDim2.new(0, Config.Size[1], 0, Config.Size[2])
+    Window.Visible = true
     
-    -- Close functionality
+    -- Close (Hide) functionality
     CloseButton.MouseButton1Click:Connect(function()
-        ScreenGui:Destroy()
+        Window.Visible = false
+        MainWindow.Visible = false
     end)
     
     CloseButton.MouseEnter:Connect(function()
@@ -641,7 +575,8 @@ function NexusUI:CreateWindow(Config)
     -- Toggle keybind
     UserInputService.InputBegan:Connect(function(Input, Processed)
         if not Processed and Input.KeyCode == Config.ToggleKey then
-            MainWindow.Visible = not MainWindow.Visible
+            Window.Visible = not Window.Visible
+            MainWindow.Visible = Window.Visible
         end
     end)
     
@@ -650,15 +585,22 @@ function NexusUI:CreateWindow(Config)
         NotificationSystem:Notify(NotifyConfig)
     end
     
-    -- Set theme method
-    function Window:SetTheme(ThemeName)
-        if NexusUI.Themes[ThemeName] then
-            NexusUI.CurrentTheme = NexusUI.Themes[ThemeName]
-            -- Refresh UI colors would go here
-        end
+    -- Destroy method
+    function Window:Destroy()
+        ScreenGui:Destroy()
     end
     
-    -- Create Tab method
+    -- Toggle method
+    function Window:Toggle(State)
+        if State ~= nil then
+            Window.Visible = State
+        else
+            Window.Visible = not Window.Visible
+        end
+        MainWindow.Visible = Window.Visible
+    end
+    
+    -- Create Tab Method
     function Window:CreateTab(TabConfig)
         TabConfig = TabConfig or {}
         TabConfig.Name = TabConfig.Name or "Tab"
@@ -726,22 +668,33 @@ function NexusUI:CreateWindow(Config)
             TabContent.CanvasSize = UDim2.new(0, 0, 0, ContentLayout.AbsoluteContentSize.Y + 10)
         end)
         
+        -- Store references
         Tab.Button = TabButton
         Tab.Content = TabContent
+        Tab.IconLabel = TabIcon
+        Tab.TextLabel = TabText
         
-        -- Tab selection
+        -- Tab selection function
         local function SelectTab()
             -- Deselect all tabs
             for _, OtherTab in pairs(Window.Tabs) do
-                OtherTab.Content.Visible = false
-                Utility:Tween(OtherTab.Button, {BackgroundTransparency = 1}, 0.2)
-                OtherTab.Button.Icon.TextColor3 = Theme.SubText
-                OtherTab.Button.Text.TextColor3 = Theme.SubText
+                if OtherTab.Content then
+                    OtherTab.Content.Visible = false
+                end
+                if OtherTab.Button then
+                    Utility:Tween(OtherTab.Button, {BackgroundTransparency = 1}, 0.2)
+                end
+                if OtherTab.IconLabel then
+                    OtherTab.IconLabel.TextColor3 = Theme.SubText
+                end
+                if OtherTab.TextLabel then
+                    OtherTab.TextLabel.TextColor3 = Theme.SubText
+                end
             end
             
             -- Select this tab
             TabContent.Visible = true
-            Utility:Tween(TabButton, {BackgroundTransparency = 0}, 0.2)
+            Utility:Tween(TabButton, {BackgroundTransparency = 0, BackgroundColor3 = Theme.Tertiary}, 0.2)
             TabIcon.TextColor3 = Theme.Accent
             TabText.TextColor3 = Theme.Text
             Window.ActiveTab = Tab
@@ -751,7 +704,7 @@ function NexusUI:CreateWindow(Config)
         
         TabButton.MouseEnter:Connect(function()
             if Window.ActiveTab ~= Tab then
-                Utility:Tween(TabButton, {BackgroundTransparency = 0.5}, 0.2)
+                Utility:Tween(TabButton, {BackgroundTransparency = 0.5, BackgroundColor3 = Theme.Tertiary}, 0.2)
             end
         end)
         
@@ -761,16 +714,15 @@ function NexusUI:CreateWindow(Config)
             end
         end)
         
+        table.insert(Window.Tabs, Tab)
+        
         -- Select first tab automatically
-        if #Window.Tabs == 0 then
+        if #Window.Tabs == 1 then
             SelectTab()
         end
         
-        table.insert(Window.Tabs, Tab)
-        
         --[[ TAB ELEMENT METHODS ]]--
         
-        -- Create Section
         function Tab:CreateSection(SectionName)
             local Section = Instance.new("Frame")
             Section.Name = "Section"
@@ -799,7 +751,6 @@ function NexusUI:CreateWindow(Config)
             return Section
         end
         
-        -- Create Button
         function Tab:CreateButton(ButtonConfig)
             ButtonConfig = ButtonConfig or {}
             ButtonConfig.Name = ButtonConfig.Name or "Button"
@@ -851,7 +802,7 @@ function NexusUI:CreateWindow(Config)
             Utility:RippleEffect(Button)
             
             Button.MouseButton1Click:Connect(function()
-                ButtonConfig.Callback()
+                pcall(ButtonConfig.Callback)
             end)
             
             Button.MouseEnter:Connect(function()
@@ -862,10 +813,16 @@ function NexusUI:CreateWindow(Config)
                 Utility:Tween(ButtonFrame, {BackgroundColor3 = Theme.Tertiary}, 0.2)
             end)
             
-            return ButtonFrame
+            local ButtonObj = {}
+            ButtonObj.Frame = ButtonFrame
+            
+            function ButtonObj:SetText(NewText)
+                ButtonText.Text = NewText
+            end
+            
+            return ButtonObj
         end
         
-        -- Create Toggle
         function Tab:CreateToggle(ToggleConfig)
             ToggleConfig = ToggleConfig or {}
             ToggleConfig.Name = ToggleConfig.Name or "Toggle"
@@ -925,7 +882,7 @@ function NexusUI:CreateWindow(Config)
                     Position = Toggled and UDim2.new(1, -20, 0.5, -9) or UDim2.new(0, 2, 0.5, -9)
                 }, 0.2)
                 
-                ToggleConfig.Callback(Toggled)
+                pcall(ToggleConfig.Callback, Toggled)
             end
             
             ToggleButton.MouseButton1Click:Connect(function()
@@ -946,7 +903,6 @@ function NexusUI:CreateWindow(Config)
             return ToggleObj
         end
         
-        -- Create Slider
         function Tab:CreateSlider(SliderConfig)
             SliderConfig = SliderConfig or {}
             SliderConfig.Name = SliderConfig.Name or "Slider"
@@ -998,8 +954,10 @@ function NexusUI:CreateWindow(Config)
             
             Utility:CreateCorner(SliderTrack, 3)
             
+            local FillPercent = (CurrentValue - SliderConfig.Min) / (SliderConfig.Max - SliderConfig.Min)
+            
             local SliderFill = Instance.new("Frame")
-            SliderFill.Size = UDim2.new((CurrentValue - SliderConfig.Min) / (SliderConfig.Max - SliderConfig.Min), 0, 1, 0)
+            SliderFill.Size = UDim2.new(FillPercent, 0, 1, 0)
             SliderFill.BackgroundColor3 = Theme.Accent
             SliderFill.BorderSizePixel = 0
             SliderFill.Parent = SliderTrack
@@ -1007,18 +965,19 @@ function NexusUI:CreateWindow(Config)
             Utility:CreateCorner(SliderFill, 3)
             
             local SliderButton = Instance.new("TextButton")
-            SliderButton.Size = UDim2.new(1, 0, 1, 0)
+            SliderButton.Size = UDim2.new(1, 0, 1, 10)
+            SliderButton.Position = UDim2.new(0, 0, 0, -5)
             SliderButton.BackgroundTransparency = 1
             SliderButton.Text = ""
             SliderButton.Parent = SliderTrack
             
             local Dragging = false
             
-            local function UpdateSlider(Input)
+            local function UpdateSlider(InputX)
                 local TrackPos = SliderTrack.AbsolutePosition.X
                 local TrackSize = SliderTrack.AbsoluteSize.X
                 
-                local Position = math.clamp((Input.Position.X - TrackPos) / TrackSize, 0, 1)
+                local Position = math.clamp((InputX - TrackPos) / TrackSize, 0, 1)
                 local RawValue = SliderConfig.Min + (SliderConfig.Max - SliderConfig.Min) * Position
                 local Value = math.floor(RawValue / SliderConfig.Increment + 0.5) * SliderConfig.Increment
                 Value = math.clamp(Value, SliderConfig.Min, SliderConfig.Max)
@@ -1029,7 +988,7 @@ function NexusUI:CreateWindow(Config)
                 local FillSize = (Value - SliderConfig.Min) / (SliderConfig.Max - SliderConfig.Min)
                 Utility:Tween(SliderFill, {Size = UDim2.new(FillSize, 0, 1, 0)}, 0.1)
                 
-                SliderConfig.Callback(Value)
+                pcall(SliderConfig.Callback, Value)
             end
             
             SliderButton.MouseButton1Down:Connect(function()
@@ -1037,20 +996,20 @@ function NexusUI:CreateWindow(Config)
             end)
             
             UserInputService.InputEnded:Connect(function(Input)
-                if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+                if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
                     Dragging = false
                 end
             end)
             
             UserInputService.InputChanged:Connect(function(Input)
-                if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                    UpdateSlider(Input)
+                if Dragging and (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch) then
+                    UpdateSlider(Input.Position.X)
                 end
             end)
             
             SliderButton.MouseButton1Click:Connect(function()
                 local MouseLoc = UserInputService:GetMouseLocation()
-                UpdateSlider({Position = Vector3.new(MouseLoc.X, MouseLoc.Y, 0)})
+                UpdateSlider(MouseLoc.X)
             end)
             
             local SliderObj = {}
@@ -1061,7 +1020,7 @@ function NexusUI:CreateWindow(Config)
                 SliderValue.Text = tostring(CurrentValue)
                 local FillSize = (CurrentValue - SliderConfig.Min) / (SliderConfig.Max - SliderConfig.Min)
                 SliderFill.Size = UDim2.new(FillSize, 0, 1, 0)
-                SliderConfig.Callback(CurrentValue)
+                pcall(SliderConfig.Callback, CurrentValue)
             end
             
             function SliderObj:GetValue()
@@ -1071,17 +1030,17 @@ function NexusUI:CreateWindow(Config)
             return SliderObj
         end
         
-        -- Create Dropdown
         function Tab:CreateDropdown(DropdownConfig)
             DropdownConfig = DropdownConfig or {}
             DropdownConfig.Name = DropdownConfig.Name or "Dropdown"
             DropdownConfig.Options = DropdownConfig.Options or {}
-            DropdownConfig.CurrentOption = DropdownConfig.CurrentOption or DropdownConfig.Options[1]
+            DropdownConfig.CurrentOption = DropdownConfig.CurrentOption or (DropdownConfig.Options[1] or "")
             DropdownConfig.MultiSelect = DropdownConfig.MultiSelect or false
             DropdownConfig.Callback = DropdownConfig.Callback or function() end
             
             local Selected = DropdownConfig.MultiSelect and {} or DropdownConfig.CurrentOption
             local IsOpen = false
+            local OptionButtons = {}
             
             local DropdownFrame = Instance.new("Frame")
             DropdownFrame.Name = "Dropdown"
@@ -1147,6 +1106,8 @@ function NexusUI:CreateWindow(Config)
                 
                 Utility:CreateCorner(OptionButton, 4)
                 
+                OptionButtons[OptionName] = OptionButton
+                
                 if DropdownConfig.MultiSelect then
                     if table.find(Selected, OptionName) then
                         OptionButton.BackgroundColor3 = Theme.Accent
@@ -1161,7 +1122,7 @@ function NexusUI:CreateWindow(Config)
                             table.insert(Selected, OptionName)
                             Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Accent}, 0.2)
                         end
-                        DropdownConfig.Callback(Selected)
+                        pcall(DropdownConfig.Callback, Selected)
                     end)
                 else
                     if OptionName == Selected then
@@ -1170,16 +1131,15 @@ function NexusUI:CreateWindow(Config)
                     
                     OptionButton.MouseButton1Click:Connect(function()
                         Selected = OptionName
-                        DropdownConfig.Callback(Selected)
+                        pcall(DropdownConfig.Callback, Selected)
                         
-                        for _, Opt in pairs(OptionsHolder:GetChildren()) do
-                            if Opt:IsA("TextButton") then
-                                Utility:Tween(Opt, {BackgroundColor3 = Theme.Secondary}, 0.2)
+                        for _, Btn in pairs(OptionButtons) do
+                            if Btn and Btn.Parent then
+                                Utility:Tween(Btn, {BackgroundColor3 = Theme.Secondary}, 0.2)
                             end
                         end
                         Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Accent}, 0.2)
                         
-                        -- Close dropdown
                         IsOpen = false
                         Utility:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, 35)}, 0.3)
                         Utility:Tween(DropdownArrow, {Rotation = 0}, 0.3)
@@ -1187,20 +1147,16 @@ function NexusUI:CreateWindow(Config)
                 end
                 
                 OptionButton.MouseEnter:Connect(function()
-                    if not (DropdownConfig.MultiSelect and table.find(Selected, OptionName)) and OptionName ~= Selected then
+                    local IsSelected = DropdownConfig.MultiSelect and table.find(Selected, OptionName) or OptionName == Selected
+                    if not IsSelected then
                         Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Accent}, 0.2)
                     end
                 end)
                 
                 OptionButton.MouseLeave:Connect(function()
-                    if DropdownConfig.MultiSelect then
-                        if not table.find(Selected, OptionName) then
-                            Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Secondary}, 0.2)
-                        end
-                    else
-                        if OptionName ~= Selected then
-                            Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Secondary}, 0.2)
-                        end
+                    local IsSelected = DropdownConfig.MultiSelect and table.find(Selected, OptionName) or OptionName == Selected
+                    if not IsSelected then
+                        Utility:Tween(OptionButton, {BackgroundColor3 = Theme.Secondary}, 0.2)
                     end
                 end)
             end
@@ -1211,7 +1167,8 @@ function NexusUI:CreateWindow(Config)
             
             DropdownButton.MouseButton1Click:Connect(function()
                 IsOpen = not IsOpen
-                local TargetHeight = IsOpen and (40 + (#DropdownConfig.Options * 31)) or 35
+                local OptionCount = #DropdownConfig.Options
+                local TargetHeight = IsOpen and (40 + (OptionCount * 31)) or 35
                 Utility:Tween(DropdownFrame, {Size = UDim2.new(1, 0, 0, TargetHeight)}, 0.3)
                 Utility:Tween(DropdownArrow, {Rotation = IsOpen and 180 or 0}, 0.3)
             end)
@@ -1225,6 +1182,7 @@ function NexusUI:CreateWindow(Config)
                         Child:Destroy()
                     end
                 end
+                OptionButtons = {}
                 
                 DropdownConfig.Options = NewOptions
                 for _, Option in ipairs(NewOptions) do
@@ -1236,6 +1194,17 @@ function NexusUI:CreateWindow(Config)
                 end
             end
             
+            function DropdownObj:SetValue(Value)
+                Selected = Value
+                for Name, Btn in pairs(OptionButtons) do
+                    if Btn and Btn.Parent then
+                        local IsSelected = DropdownConfig.MultiSelect and table.find(Selected, Name) or Name == Selected
+                        Btn.BackgroundColor3 = IsSelected and Theme.Accent or Theme.Secondary
+                    end
+                end
+                pcall(DropdownConfig.Callback, Selected)
+            end
+            
             function DropdownObj:GetValue()
                 return Selected
             end
@@ -1243,7 +1212,6 @@ function NexusUI:CreateWindow(Config)
             return DropdownObj
         end
         
-        -- Create Textbox
         function Tab:CreateTextbox(TextboxConfig)
             TextboxConfig = TextboxConfig or {}
             TextboxConfig.Name = TextboxConfig.Name or "Textbox"
@@ -1294,7 +1262,7 @@ function NexusUI:CreateWindow(Config)
             Textbox.FocusLost:Connect(function(EnterPressed)
                 Utility:Tween(Textbox, {BackgroundColor3 = Theme.Secondary}, 0.2)
                 if EnterPressed then
-                    TextboxConfig.Callback(Textbox.Text)
+                    pcall(TextboxConfig.Callback, Textbox.Text)
                 end
             end)
             
@@ -1312,7 +1280,6 @@ function NexusUI:CreateWindow(Config)
             return TextboxObj
         end
         
-        -- Create Keybind
         function Tab:CreateKeybind(KeybindConfig)
             KeybindConfig = KeybindConfig or {}
             KeybindConfig.Name = KeybindConfig.Name or "Keybind"
@@ -1323,6 +1290,8 @@ function NexusUI:CreateWindow(Config)
             local CurrentKey = KeybindConfig.CurrentKeybind
             local Listening = false
             local IsActive = false
+            local Connection
+            local Connection2
             
             local KeybindFrame = Instance.new("Frame")
             KeybindFrame.Name = "Keybind"
@@ -1364,7 +1333,7 @@ function NexusUI:CreateWindow(Config)
                 Utility:Tween(KeybindButton, {BackgroundColor3 = Theme.Accent}, 0.2)
             end)
             
-            UserInputService.InputBegan:Connect(function(Input, Processed)
+            Connection = UserInputService.InputBegan:Connect(function(Input, Processed)
                 if Listening then
                     if Input.UserInputType == Enum.UserInputType.Keyboard then
                         CurrentKey = Input.KeyCode.Name
@@ -1375,17 +1344,17 @@ function NexusUI:CreateWindow(Config)
                 elseif not Processed and Input.KeyCode and Input.KeyCode.Name == CurrentKey then
                     if KeybindConfig.Mode == "Toggle" then
                         IsActive = not IsActive
-                        KeybindConfig.Callback(IsActive)
+                        pcall(KeybindConfig.Callback, IsActive)
                     else
-                        KeybindConfig.Callback(true)
+                        pcall(KeybindConfig.Callback, true)
                     end
                 end
             end)
             
             if KeybindConfig.Mode == "Hold" then
-                UserInputService.InputEnded:Connect(function(Input)
+                Connection2 = UserInputService.InputEnded:Connect(function(Input)
                     if Input.KeyCode and Input.KeyCode.Name == CurrentKey then
-                        KeybindConfig.Callback(false)
+                        pcall(KeybindConfig.Callback, false)
                     end
                 end)
             end
@@ -1405,7 +1374,6 @@ function NexusUI:CreateWindow(Config)
             return KeybindObj
         end
         
-        -- Create Label
         function Tab:CreateLabel(LabelText)
             local LabelFrame = Instance.new("Frame")
             LabelFrame.Name = "Label"
@@ -1433,7 +1401,6 @@ function NexusUI:CreateWindow(Config)
             return LabelObj
         end
         
-        -- Create Paragraph
         function Tab:CreateParagraph(Title, Content)
             local ParagraphFrame = Instance.new("Frame")
             ParagraphFrame.Name = "Paragraph"
@@ -1482,7 +1449,6 @@ function NexusUI:CreateWindow(Config)
             return ParagraphObj
         end
         
-        -- Create ColorPicker
         function Tab:CreateColorPicker(ColorConfig)
             ColorConfig = ColorConfig or {}
             ColorConfig.Name = ColorConfig.Name or "Color Picker"
@@ -1491,6 +1457,7 @@ function NexusUI:CreateWindow(Config)
             
             local CurrentColor = ColorConfig.Default
             local PickerOpen = false
+            local R, G, B = math.floor(CurrentColor.R * 255), math.floor(CurrentColor.G * 255), math.floor(CurrentColor.B * 255)
             
             local ColorFrame = Instance.new("Frame")
             ColorFrame.Name = "ColorPicker"
@@ -1525,14 +1492,13 @@ function NexusUI:CreateWindow(Config)
             Utility:CreateCorner(ColorDisplay, 4)
             Utility:AddStroke(ColorDisplay, Theme.Border, 2)
             
-            -- Color sliders container
             local SlidersHolder = Instance.new("Frame")
             SlidersHolder.Size = UDim2.new(1, -20, 0, 100)
             SlidersHolder.Position = UDim2.new(0, 10, 0, 40)
             SlidersHolder.BackgroundTransparency = 1
             SlidersHolder.Parent = ColorFrame
             
-            local R, G, B = math.floor(CurrentColor.R * 255), math.floor(CurrentColor.G * 255), math.floor(CurrentColor.B * 255)
+            local SliderRefs = {}
             
             local function CreateColorSlider(Name, DefaultValue, YPos, SliderColor)
                 local SliderFrame = Instance.new("Frame")
@@ -1578,15 +1544,18 @@ function NexusUI:CreateWindow(Config)
                 SliderValue.Parent = SliderFrame
                 
                 local SliderButton = Instance.new("TextButton")
-                SliderButton.Size = UDim2.new(1, 0, 1, 0)
+                SliderButton.Size = UDim2.new(1, 0, 1, 10)
+                SliderButton.Position = UDim2.new(0, 0, 0, -5)
                 SliderButton.BackgroundTransparency = 1
                 SliderButton.Text = ""
                 SliderButton.Parent = SliderTrack
                 
+                SliderRefs[Name] = {Fill = SliderFill, Value = SliderValue}
+                
                 local Dragging = false
                 
-                local function UpdateColor(Input)
-                    local Position = math.clamp((Input.Position.X - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X, 0, 1)
+                local function UpdateColor(InputX)
+                    local Position = math.clamp((InputX - SliderTrack.AbsolutePosition.X) / SliderTrack.AbsoluteSize.X, 0, 1)
                     local Value = math.floor(Position * 255)
                     
                     SliderValue.Text = tostring(Value)
@@ -1598,7 +1567,7 @@ function NexusUI:CreateWindow(Config)
                     
                     CurrentColor = Color3.fromRGB(R, G, B)
                     ColorDisplay.BackgroundColor3 = CurrentColor
-                    ColorConfig.Callback(CurrentColor)
+                    pcall(ColorConfig.Callback, CurrentColor)
                 end
                 
                 SliderButton.MouseButton1Down:Connect(function()
@@ -1613,8 +1582,13 @@ function NexusUI:CreateWindow(Config)
                 
                 UserInputService.InputChanged:Connect(function(Input)
                     if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                        UpdateColor(Input)
+                        UpdateColor(Input.Position.X)
                     end
+                end)
+                
+                SliderButton.MouseButton1Click:Connect(function()
+                    local MouseLoc = UserInputService:GetMouseLocation()
+                    UpdateColor(MouseLoc.X)
                 end)
             end
             
@@ -1637,7 +1611,21 @@ function NexusUI:CreateWindow(Config)
                 R = math.floor(NewColor.R * 255)
                 G = math.floor(NewColor.G * 255)
                 B = math.floor(NewColor.B * 255)
-                ColorConfig.Callback(NewColor)
+                
+                if SliderRefs["R"] then
+                    SliderRefs["R"].Fill.Size = UDim2.new(R / 255, 0, 1, 0)
+                    SliderRefs["R"].Value.Text = tostring(R)
+                end
+                if SliderRefs["G"] then
+                    SliderRefs["G"].Fill.Size = UDim2.new(G / 255, 0, 1, 0)
+                    SliderRefs["G"].Value.Text = tostring(G)
+                end
+                if SliderRefs["B"] then
+                    SliderRefs["B"].Fill.Size = UDim2.new(B / 255, 0, 1, 0)
+                    SliderRefs["B"].Value.Text = tostring(B)
+                end
+                
+                pcall(ColorConfig.Callback, NewColor)
             end
             
             function ColorObj:GetColor()
