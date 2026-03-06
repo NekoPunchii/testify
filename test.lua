@@ -19,7 +19,8 @@ end
 local function MakeDraggable(Frame, Handle)
     Handle = Handle or Frame
     local Dragging = false
-    local StartPos, StartMouse
+    local StartPos = nil
+    local StartMouse = nil
     
     Handle.InputBegan:Connect(function(Input)
         if Input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -62,7 +63,7 @@ local Theme = {
     Background = Color3.fromRGB(20, 20, 25),
     Secondary = Color3.fromRGB(30, 30, 35),
     Tertiary = Color3.fromRGB(45, 45, 50),
-    Accent = Color3.fromRGB(88, 101, 242),
+    Accent = Color3.fromRGB(255, 120, 180),
     Text = Color3.fromRGB(240, 240, 240),
     SubText = Color3.fromRGB(160, 160, 160),
     Border = Color3.fromRGB(55, 55, 60),
@@ -234,7 +235,6 @@ function NexusUI:CreateWindow(Config)
         Tween(MinBtn, {BackgroundColor3 = Theme.Tertiary}, 0.15)
     end)
     
-    -- TOGGLE KEY HANDLER
     UserInputService.InputBegan:Connect(function(Input, GameProcessed)
         if GameProcessed then return end
         if Input.KeyCode == Config.ToggleKey then
@@ -287,21 +287,10 @@ function NexusUI:CreateWindow(Config)
             Tween(NTitle, {TextTransparency = 1}, 0.25)
             Tween(NDesc, {TextTransparency = 1}, 0.25)
             task.wait(0.3)
-            if Notif.Parent then Notif:Destroy() end
+            if Notif.Parent then
+                Notif:Destroy()
+            end
         end)
-    end
-    
-    function Window:Toggle(State)
-        if State == nil then
-            Window.IsVisible = not Window.IsVisible
-        else
-            Window.IsVisible = State
-        end
-        Main.Visible = Window.IsVisible
-    end
-    
-    function Window:Destroy()
-        ScreenGui:Destroy()
     end
     
     function Window:CreateTab(Data)
@@ -345,8 +334,8 @@ function NexusUI:CreateWindow(Config)
         Tab.Button = TabBtn
         Tab.Page = TabPage
         
-        local function Select()
-            for i, T in pairs(Window.Tabs) do
+        local function SelectTab()
+            for _, T in pairs(Window.Tabs) do
                 T.Page.Visible = false
                 Tween(T.Button, {BackgroundTransparency = 1}, 0.15)
                 T.Button.TextColor3 = Theme.SubText
@@ -357,7 +346,7 @@ function NexusUI:CreateWindow(Config)
             Window.ActiveTab = Tab
         end
         
-        TabBtn.MouseButton1Click:Connect(Select)
+        TabBtn.MouseButton1Click:Connect(SelectTab)
         
         TabBtn.MouseEnter:Connect(function()
             if Window.ActiveTab ~= Tab then
@@ -374,7 +363,7 @@ function NexusUI:CreateWindow(Config)
         table.insert(Window.Tabs, Tab)
         
         if #Window.Tabs == 1 then
-            Select()
+            SelectTab()
         end
         
         function Tab:CreateSection(Name)
@@ -419,7 +408,9 @@ function NexusUI:CreateWindow(Config)
             CreateCorner(Btn, 5)
             
             Btn.MouseButton1Click:Connect(function()
-                if Data.Callback then pcall(Data.Callback) end
+                if Data.Callback then
+                    pcall(Data.Callback)
+                end
             end)
             
             Btn.MouseEnter:Connect(function()
@@ -477,16 +468,23 @@ function NexusUI:CreateWindow(Config)
                 Enabled = Val
                 Tween(ToggleBtn, {BackgroundColor3 = Enabled and Theme.Accent or Theme.Border}, 0.15)
                 Tween(Circle, {Position = Enabled and UDim2.new(1, -16, 0.5, -7) or UDim2.new(0, 2, 0.5, -7)}, 0.15)
-                if Data.Callback then pcall(Data.Callback, Enabled) end
+                if Data.Callback then
+                    pcall(Data.Callback, Enabled)
+                end
             end
             
             ToggleBtn.MouseButton1Click:Connect(function()
                 Update(not Enabled)
             end)
             
-            local Obj = {Frame = Frame}
-            function Obj:SetValue(V) Update(V) end
-            function Obj:GetValue() return Enabled end
+            local Obj = {}
+            Obj.Frame = Frame
+            function Obj:SetValue(V)
+                Update(V)
+            end
+            function Obj:GetValue()
+                return Enabled
+            end
             return Obj
         end
         
@@ -553,7 +551,9 @@ function NexusUI:CreateWindow(Config)
                 Val = math.floor(Min + (Max - Min) * Pct)
                 ValLabel.Text = tostring(Val)
                 Tween(Fill, {Size = UDim2.new(Pct, 0, 1, 0)}, 0.08)
-                if Data.Callback then pcall(Data.Callback, Val) end
+                if Data.Callback then
+                    pcall(Data.Callback, Val)
+                end
             end
             
             SliderArea.MouseButton1Down:Connect(function()
@@ -576,250 +576,19 @@ function NexusUI:CreateWindow(Config)
                 SetValue(UserInputService:GetMouseLocation().X)
             end)
             
-            local Obj = {Frame = Frame}
+            local Obj = {}
+            Obj.Frame = Frame
             function Obj:SetValue(V)
                 Val = math.clamp(V, Min, Max)
                 ValLabel.Text = tostring(Val)
                 Fill.Size = UDim2.new((Val - Min) / (Max - Min), 0, 1, 0)
-                if Data.Callback then pcall(Data.Callback, Val) end
-            end
-            function Obj:GetValue() return Val end
-            return Obj
-        end
-        
-        function Tab:CreateDropdown(Data)
-            Data = Data or {}
-            local Options = Data.Options or {}
-            local Selected = Data.Default or Options[1] or ""
-            local IsOpen = false
-            local OptBtns = {}
-            
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, 30)
-            Frame.BackgroundColor3 = Theme.Tertiary
-            Frame.ClipsDescendants = true
-            Frame.Parent = TabPage
-            
-            CreateCorner(Frame, 5)
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, -25, 0, 30)
-            Label.Position = UDim2.new(0, 10, 0, 0)
-            Label.BackgroundTransparency = 1
-            Label.Text = Data.Name or "Dropdown"
-            Label.TextColor3 = Theme.Text
-            Label.Font = Enum.Font.GothamSemibold
-            Label.TextSize = 12
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = Frame
-            
-            local Arrow = Instance.new("TextLabel")
-            Arrow.Size = UDim2.new(0, 18, 0, 30)
-            Arrow.Position = UDim2.new(1, -22, 0, 0)
-            Arrow.BackgroundTransparency = 1
-            Arrow.Text = "v"
-            Arrow.TextColor3 = Theme.SubText
-            Arrow.Font = Enum.Font.GothamBold
-            Arrow.TextSize = 11
-            Arrow.Parent = Frame
-            
-            local OptHolder = Instance.new("Frame")
-            OptHolder.Size = UDim2.new(1, -8, 0, 0)
-            OptHolder.Position = UDim2.new(0, 4, 0, 34)
-            OptHolder.BackgroundTransparency = 1
-            OptHolder.Parent = Frame
-            
-            local OptLayout = Instance.new("UIListLayout")
-            OptLayout.Padding = UDim.new(0, 2)
-            OptLayout.Parent = OptHolder
-            
-            local MainBtn = Instance.new("TextButton")
-            MainBtn.Size = UDim2.new(1, 0, 0, 30)
-            MainBtn.BackgroundTransparency = 1
-            MainBtn.Text = ""
-            MainBtn.Parent = Frame
-            
-            local function MakeOpt(Name)
-                local OptBtn = Instance.new("TextButton")
-                OptBtn.Size = UDim2.new(1, 0, 0, 24)
-                OptBtn.BackgroundColor3 = Name == Selected and Theme.Accent or Theme.Secondary
-                OptBtn.Text = Name
-                OptBtn.TextColor3 = Theme.Text
-                OptBtn.Font = Enum.Font.Gotham
-                OptBtn.TextSize = 11
-                OptBtn.AutoButtonColor = false
-                OptBtn.Parent = OptHolder
-                
-                CreateCorner(OptBtn, 4)
-                OptBtns[Name] = OptBtn
-                
-                OptBtn.MouseButton1Click:Connect(function()
-                    Selected = Name
-                    for N, B in pairs(OptBtns) do
-                        Tween(B, {BackgroundColor3 = N == Selected and Theme.Accent or Theme.Secondary}, 0.15)
-                    end
-                    IsOpen = false
-                    Tween(Frame, {Size = UDim2.new(1, 0, 0, 30)}, 0.2)
-                    Arrow.Text = "v"
-                    if Data.Callback then pcall(Data.Callback, Selected) end
-                end)
-                
-                OptBtn.MouseEnter:Connect(function()
-                    if Name ~= Selected then
-                        Tween(OptBtn, {BackgroundColor3 = Theme.Accent}, 0.15)
-                    end
-                end)
-                
-                OptBtn.MouseLeave:Connect(function()
-                    if Name ~= Selected then
-                        Tween(OptBtn, {BackgroundColor3 = Theme.Secondary}, 0.15)
-                    end
-                end)
-            end
-            
-            for _, Opt in ipairs(Options) do
-                MakeOpt(Opt)
-            end
-            
-            MainBtn.MouseButton1Click:Connect(function()
-                IsOpen = not IsOpen
-                local H = IsOpen and (34 + #Options * 26) or 30
-                Tween(Frame, {Size = UDim2.new(1, 0, 0, H)}, 0.2)
-                Arrow.Text = IsOpen and "^" or "v"
-            end)
-            
-            local Obj = {Frame = Frame}
-            function Obj:SetValue(V)
-                Selected = V
-                for N, B in pairs(OptBtns) do
-                    B.BackgroundColor3 = N == Selected and Theme.Accent or Theme.Secondary
-                end
-                if Data.Callback then pcall(Data.Callback, Selected) end
-            end
-            function Obj:GetValue() return Selected end
-            function Obj:Refresh(NewOpts)
-                for _, B in pairs(OptBtns) do B:Destroy() end
-                OptBtns = {}
-                Options = NewOpts
-                for _, Opt in ipairs(NewOpts) do MakeOpt(Opt) end
-                if IsOpen then
-                    Frame.Size = UDim2.new(1, 0, 0, 34 + #NewOpts * 26)
+                if Data.Callback then
+                    pcall(Data.Callback, Val)
                 end
             end
-            return Obj
-        end
-        
-        function Tab:CreateTextbox(Data)
-            Data = Data or {}
-            
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, 52)
-            Frame.BackgroundColor3 = Theme.Tertiary
-            Frame.Parent = TabPage
-            
-            CreateCorner(Frame, 5)
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, -15, 0, 18)
-            Label.Position = UDim2.new(0, 10, 0, 4)
-            Label.BackgroundTransparency = 1
-            Label.Text = Data.Name or "Textbox"
-            Label.TextColor3 = Theme.Text
-            Label.Font = Enum.Font.GothamSemibold
-            Label.TextSize = 11
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = Frame
-            
-            local Box = Instance.new("TextBox")
-            Box.Size = UDim2.new(1, -16, 0, 22)
-            Box.Position = UDim2.new(0, 8, 0, 24)
-            Box.BackgroundColor3 = Theme.Secondary
-            Box.Text = ""
-            Box.PlaceholderText = Data.Placeholder or "Type..."
-            Box.TextColor3 = Theme.Text
-            Box.PlaceholderColor3 = Theme.SubText
-            Box.Font = Enum.Font.Gotham
-            Box.TextSize = 11
-            Box.ClearTextOnFocus = false
-            Box.Parent = Frame
-            
-            CreateCorner(Box, 4)
-            
-            Box.Focused:Connect(function()
-                Tween(Box, {BackgroundColor3 = Theme.Accent}, 0.15)
-            end)
-            
-            Box.FocusLost:Connect(function(Enter)
-                Tween(Box, {BackgroundColor3 = Theme.Secondary}, 0.15)
-                if Enter and Data.Callback then
-                    pcall(Data.Callback, Box.Text)
-                end
-            end)
-            
-            local Obj = {Frame = Frame}
-            function Obj:SetValue(V) Box.Text = V end
-            function Obj:GetValue() return Box.Text end
-            return Obj
-        end
-        
-        function Tab:CreateKeybind(Data)
-            Data = Data or {}
-            local Key = Data.Default or "None"
-            local Listening = false
-            
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, 30)
-            Frame.BackgroundColor3 = Theme.Tertiary
-            Frame.Parent = TabPage
-            
-            CreateCorner(Frame, 5)
-            
-            local Label = Instance.new("TextLabel")
-            Label.Size = UDim2.new(1, -75, 1, 0)
-            Label.Position = UDim2.new(0, 10, 0, 0)
-            Label.BackgroundTransparency = 1
-            Label.Text = Data.Name or "Keybind"
-            Label.TextColor3 = Theme.Text
-            Label.Font = Enum.Font.GothamSemibold
-            Label.TextSize = 12
-            Label.TextXAlignment = Enum.TextXAlignment.Left
-            Label.Parent = Frame
-            
-            local KeyBtn = Instance.new("TextButton")
-            KeyBtn.Size = UDim2.new(0, 60, 0, 20)
-            KeyBtn.Position = UDim2.new(1, -68, 0.5, -10)
-            KeyBtn.BackgroundColor3 = Theme.Secondary
-            KeyBtn.Text = Key
-            KeyBtn.TextColor3 = Theme.Text
-            KeyBtn.Font = Enum.Font.GothamBold
-            KeyBtn.TextSize = 10
-            KeyBtn.AutoButtonColor = false
-            KeyBtn.Parent = Frame
-            
-            CreateCorner(KeyBtn, 4)
-            
-            KeyBtn.MouseButton1Click:Connect(function()
-                Listening = true
-                KeyBtn.Text = "..."
-                Tween(KeyBtn, {BackgroundColor3 = Theme.Accent}, 0.15)
-            end)
-            
-            UserInputService.InputBegan:Connect(function(Input, GP)
-                if Listening then
-                    if Input.UserInputType == Enum.UserInputType.Keyboard then
-                        Key = Input.KeyCode.Name
-                        KeyBtn.Text = Key
-                        Listening = false
-                        Tween(KeyBtn, {BackgroundColor3 = Theme.Secondary}, 0.15)
-                    end
-                elseif not GP and Input.KeyCode and Input.KeyCode.Name == Key then
-                    if Data.Callback then pcall(Data.Callback) end
-                end
-            end)
-            
-            local Obj = {Frame = Frame}
-            function Obj:SetKey(K) Key = K KeyBtn.Text = K end
-            function Obj:GetKey() return Key end
+            function Obj:GetValue()
+                return Val
+            end
             return Obj
         end
         
@@ -834,45 +603,11 @@ function NexusUI:CreateWindow(Config)
             Lbl.TextXAlignment = Enum.TextXAlignment.Left
             Lbl.Parent = TabPage
             
-            local Obj = {Label = Lbl}
-            function Obj:SetText(T) Lbl.Text = T end
-            return Obj
-        end
-        
-        function Tab:CreateParagraph(Title, Desc)
-            local Frame = Instance.new("Frame")
-            Frame.Size = UDim2.new(1, 0, 0, 52)
-            Frame.BackgroundColor3 = Theme.Tertiary
-            Frame.Parent = TabPage
-            
-            CreateCorner(Frame, 5)
-            
-            local TLabel = Instance.new("TextLabel")
-            TLabel.Size = UDim2.new(1, -15, 0, 18)
-            TLabel.Position = UDim2.new(0, 10, 0, 4)
-            TLabel.BackgroundTransparency = 1
-            TLabel.Text = Title or "Title"
-            TLabel.TextColor3 = Theme.Text
-            TLabel.Font = Enum.Font.GothamBold
-            TLabel.TextSize = 12
-            TLabel.TextXAlignment = Enum.TextXAlignment.Left
-            TLabel.Parent = Frame
-            
-            local DLabel = Instance.new("TextLabel")
-            DLabel.Size = UDim2.new(1, -15, 0, 26)
-            DLabel.Position = UDim2.new(0, 10, 0, 22)
-            DLabel.BackgroundTransparency = 1
-            DLabel.Text = Desc or "Description"
-            DLabel.TextColor3 = Theme.SubText
-            DLabel.Font = Enum.Font.Gotham
-            DLabel.TextSize = 11
-            DLabel.TextXAlignment = Enum.TextXAlignment.Left
-            DLabel.TextWrapped = true
-            DLabel.Parent = Frame
-            
-            local Obj = {Frame = Frame}
-            function Obj:SetTitle(T) TLabel.Text = T end
-            function Obj:SetDesc(D) DLabel.Text = D end
+            local Obj = {}
+            Obj.Label = Lbl
+            function Obj:SetText(T)
+                Lbl.Text = T
+            end
             return Obj
         end
         
