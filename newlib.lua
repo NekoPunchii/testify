@@ -330,7 +330,7 @@ function ToggleLib:CreateTextBox(name, placeholder, callback)
 end
 
 -- ═══════════════════════════════════════════════════════════
--- DROPDOWN OLUŞTURMA
+-- DROPDOWN OLUŞTURMA (SCROLLABLE)
 -- ═══════════════════════════════════════════════════════════
 function ToggleLib:CreateDropdown(name, options, callback)
     elementCount = elementCount + 1
@@ -340,7 +340,8 @@ function ToggleLib:CreateDropdown(name, options, callback)
     DropdownFrame.Size = UDim2.new(1, 0, 0, 34)
     DropdownFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 40)
     DropdownFrame.BorderSizePixel = 0
-    DropdownFrame.ClipsDescendants = true
+    DropdownFrame.ClipsDescendants = false
+    DropdownFrame.ZIndex = 5
     DropdownFrame.Parent = ToggleContainer
 
     local DropdownCorner = Instance.new("UICorner")
@@ -357,6 +358,7 @@ function ToggleLib:CreateDropdown(name, options, callback)
     DropdownLabel.Font = Enum.Font.Gotham
     DropdownLabel.TextXAlignment = Enum.TextXAlignment.Left
     DropdownLabel.TextTruncate = Enum.TextTruncate.AtEnd
+    DropdownLabel.ZIndex = 5
     DropdownLabel.Parent = DropdownFrame
 
     local DropdownButton = Instance.new("TextButton")
@@ -368,6 +370,7 @@ function ToggleLib:CreateDropdown(name, options, callback)
     DropdownButton.TextColor3 = Color3.fromRGB(200, 200, 200)
     DropdownButton.TextSize = 13
     DropdownButton.Font = Enum.Font.Gotham
+    DropdownButton.ZIndex = 5
     DropdownButton.Parent = DropdownFrame
 
     local DBCorner = Instance.new("UICorner")
@@ -382,20 +385,35 @@ function ToggleLib:CreateDropdown(name, options, callback)
     Arrow.TextColor3 = Color3.fromRGB(150, 150, 150)
     Arrow.TextSize = 10
     Arrow.Font = Enum.Font.GothamBold
+    Arrow.ZIndex = 5
     Arrow.Parent = DropdownButton
 
-    local OptionsContainer = Instance.new("Frame")
-    OptionsContainer.Size = UDim2.new(0.55, -10, 0, #options * 28)
+    -- Scrollable Options Container
+    local maxVisibleOptions = 6
+    local optionHeight = 28
+    local containerHeight = math.min(#options, maxVisibleOptions) * optionHeight
+
+    local OptionsContainer = Instance.new("ScrollingFrame")
+    OptionsContainer.Size = UDim2.new(0.55, -10, 0, containerHeight)
     OptionsContainer.Position = UDim2.new(0.45, 0, 0, 32)
     OptionsContainer.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
     OptionsContainer.BorderSizePixel = 0
     OptionsContainer.Visible = false
     OptionsContainer.ZIndex = 10
+    OptionsContainer.ScrollBarThickness = 4
+    OptionsContainer.ScrollBarImageColor3 = Color3.fromRGB(0, 180, 130)
+    OptionsContainer.CanvasSize = UDim2.new(0, 0, 0, #options * optionHeight)
+    OptionsContainer.AutomaticCanvasSize = Enum.AutomaticSize.None
     OptionsContainer.Parent = DropdownFrame
 
     local OCCorner = Instance.new("UICorner")
     OCCorner.CornerRadius = UDim.new(0, 6)
     OCCorner.Parent = OptionsContainer
+
+    local OCStroke = Instance.new("UIStroke")
+    OCStroke.Color = Color3.fromRGB(60, 60, 70)
+    OCStroke.Thickness = 1
+    OCStroke.Parent = OptionsContainer
 
     local OptionsLayout = Instance.new("UIListLayout")
     OptionsLayout.SortOrder = Enum.SortOrder.LayoutOrder
@@ -406,7 +424,7 @@ function ToggleLib:CreateDropdown(name, options, callback)
 
     for i, option in ipairs(options) do
         local OptionButton = Instance.new("TextButton")
-        OptionButton.Size = UDim2.new(1, 0, 0, 28)
+        OptionButton.Size = UDim2.new(1, -4, 0, optionHeight)
         OptionButton.BackgroundColor3 = Color3.fromRGB(40, 40, 45)
         OptionButton.BackgroundTransparency = 0
         OptionButton.BorderSizePixel = 0
@@ -416,16 +434,6 @@ function ToggleLib:CreateDropdown(name, options, callback)
         OptionButton.Font = Enum.Font.Gotham
         OptionButton.ZIndex = 11
         OptionButton.Parent = OptionsContainer
-
-        if i == 1 then
-            local OBCornerTop = Instance.new("UICorner")
-            OBCornerTop.CornerRadius = UDim.new(0, 6)
-            OBCornerTop.Parent = OptionButton
-        elseif i == #options then
-            local OBCornerBottom = Instance.new("UICorner")
-            OBCornerBottom.CornerRadius = UDim.new(0, 6)
-            OBCornerBottom.Parent = OptionButton
-        end
 
         OptionButton.MouseEnter:Connect(function()
             TweenService:Create(OptionButton, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(0, 150, 110)}):Play()
@@ -441,7 +449,6 @@ function ToggleLib:CreateDropdown(name, options, callback)
             isOpen = false
             OptionsContainer.Visible = false
             Arrow.Text = "▼"
-            TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 34)}):Play()
             callback(option)
         end)
     end
@@ -452,10 +459,8 @@ function ToggleLib:CreateDropdown(name, options, callback)
         
         if isOpen then
             Arrow.Text = "▲"
-            TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 38 + (#options * 28))}):Play()
         else
             Arrow.Text = "▼"
-            TweenService:Create(DropdownFrame, TweenInfo.new(0.2), {Size = UDim2.new(1, 0, 0, 34)}):Play()
         end
     end)
 
