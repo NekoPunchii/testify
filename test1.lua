@@ -3,34 +3,6 @@ local ToggleLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/Nek
 
 ToggleLib:SetTitle("🎮 Auto Mine Script")
 
-ToggleLib:CreateLabel("═══ Pickaxe Ayarları ═══")
-
--- Pickaxe listesini al
-local rodsFolder = game:GetService("ReplicatedStorage"):WaitForChild("Rods")
-local pickaxeList = {}
-
-for _, pickaxe in pairs(rodsFolder:GetChildren()) do
-    if pickaxe:IsA("Model") or pickaxe:IsA("Tool") or pickaxe:IsA("BasePart") then
-        table.insert(pickaxeList, pickaxe.Name)
-    end
-end
-
--- Alfabetik sırala
-table.sort(pickaxeList, function(a, b)
-    return a:lower() < b:lower()
-end)
-
--- Seçili pickaxe
-local selectedPickaxe = pickaxeList[1] or "Iron Pickaxe"
-
--- Pickaxe Dropdown
-ToggleLib:CreateDropdown("Select Pickaxe", pickaxeList, function(Option)
-    selectedPickaxe = Option
-    ToggleLib:Notify("Pickaxe Seçildi", selectedPickaxe .. " seçildi!", 2, "success")
-end)
-
-ToggleLib:CreateSeparator()
-
 ToggleLib:CreateLabel("═══ Auto Mine ═══")
 
 -- 1. Toggle (Auto Mine)
@@ -52,7 +24,20 @@ ToggleLib:CreateToggle("Auto Mine", function(Value)
             while getgenv().AutoMine do
                 pcall(function()
 
-                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                    -- Equipped tool'u bul
+                    local character = workspace:FindFirstChild("Elijah_Ultra2004")
+                    local equippedTool = nil
+
+                    if character then
+                        for _, child in pairs(character:GetChildren()) do
+                            if child:IsA("Tool") then
+                                equippedTool = child.Name
+                                break
+                            end
+                        end
+                    end
+
+                    if equippedTool and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
                         local hrp = player.Character.HumanoidRootPart
 
                         -- Tüm cube'ları mesafeye göre sırala
@@ -87,7 +72,7 @@ ToggleLib:CreateToggle("Auto Mine", function(Value)
 
                         -- En yakın 10 cube için firelay
                         for i = 1, math.min(10, #cubesWithDistance) do
-                            mineRemote:FireServer(cubesWithDistance[i].cube, selectedPickaxe)
+                            mineRemote:FireServer(cubesWithDistance[i].cube, equippedTool)
                         end
                     end
 
