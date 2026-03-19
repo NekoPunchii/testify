@@ -1,6 +1,10 @@
 -- Library
 local ToggleLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/NekoPunchii/testify/refs/heads/main/newlib.lua"))()
 
+ToggleLib:SetTitle("🎮 Auto Mine Script")
+
+ToggleLib:CreateLabel("═══ Pickaxe Ayarları ═══")
+
 -- Pickaxe listesini al
 local rodsFolder = game:GetService("ReplicatedStorage"):WaitForChild("Rods")
 local pickaxeList = {}
@@ -22,13 +26,20 @@ local selectedPickaxe = pickaxeList[1] or "Iron Pickaxe"
 -- Pickaxe Dropdown
 ToggleLib:CreateDropdown("Select Pickaxe", pickaxeList, function(Option)
     selectedPickaxe = Option
+    ToggleLib:Notify("Pickaxe Seçildi", selectedPickaxe .. " seçildi!", 2, "success")
 end)
+
+ToggleLib:CreateSeparator()
+
+ToggleLib:CreateLabel("═══ Auto Mine ═══")
 
 -- 1. Toggle (Auto Mine)
 ToggleLib:CreateToggle("Auto Mine", function(Value)
     getgenv().AutoMine = Value
 
     if Value then
+        ToggleLib:Notify("Auto Mine", "Auto Mine açıldı!", 2, "success")
+        
         task.spawn(function()
 
             local mineRemote = game:GetService("ReplicatedStorage")
@@ -86,5 +97,7 @@ ToggleLib:CreateToggle("Auto Mine", function(Value)
             end
 
         end)
+    else
+        ToggleLib:Notify("Auto Mine", "Auto Mine kapatıldı!", 2, "warning")
     end
 end)
