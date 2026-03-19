@@ -1,100 +1,84 @@
 -- Library
 local ToggleLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/NekoPunchii/testify/refs/heads/main/newlib.lua"))()
 
--- 1. Toggle (Auto Eat)
-ToggleLib:CreateToggle("Auto Eat", function(Value)
-    getgenv().AutoEat = Value
+-- Pickaxe listesini al
+local rodsFolder = game:GetService("ReplicatedStorage"):WaitForChild("Rods")
+local pickaxeList = {}
 
-    if Value then
-        task.spawn(function()
-
-            local eatRemote = game:GetService("ReplicatedStorage")
-                :WaitForChild("E&F")
-                :WaitForChild("Food")
-                :WaitForChild("EatOnceRE")
-
-            while getgenv().AutoEat do
-                pcall(function()
-
-                    eatRemote:FireServer()
-
-                end)
-
-                task.wait(0)
-            end
-
-        end)
+for _, pickaxe in pairs(rodsFolder:GetChildren()) do
+    if pickaxe:IsA("Model") or pickaxe:IsA("Tool") or pickaxe:IsA("BasePart") then
+        table.insert(pickaxeList, pickaxe.Name)
     end
-end)
-
--- 2. Toggle (Auto Get Coins)
-ToggleLib:CreateToggle("Auto Get Coins", function(Value)
-    getgenv().AutoGetCoins = Value
-
-    if Value then
-        task.spawn(function()
-
-            local getCoinsRemote = game:GetService("ReplicatedStorage")
-                :WaitForChild("E&F")
-                :WaitForChild("Race")
-                :WaitForChild("GetCoinsRE")
-
-            while getgenv().AutoGetCoins do
-                pcall(function()
-
-                    getCoinsRemote:FireServer(1e20)
-
-                end)
-
-                task.wait(0)
-            end
-
-        end)
-    end
-end)
-
--- Separator
-ToggleLib:CreateSeparator()
-
--- Label
-ToggleLib:CreateLabel("Auto Luck Settings")
-
--- Egg Dropdown
-local eggs = {}
-for i = 1, 20 do
-    table.insert(eggs, "Egg" .. i)
 end
 
-local selectedEgg = "Egg1"
-ToggleLib:CreateDropdown("Select Egg", eggs, function(Option)
-    selectedEgg = Option
+-- Alfabetik sırala
+table.sort(pickaxeList, function(a, b)
+    return a:lower() < b:lower()
 end)
 
--- Amount TextBox
-local luckAmount = 1
-ToggleLib:CreateTextBox("Amount", "Enter amount...", function(Text)
-    local num = tonumber(Text)
-    if num then
-        luckAmount = num
-    end
+-- Seçili pickaxe
+local selectedPickaxe = pickaxeList[1] or "Iron Pickaxe"
+
+-- Pickaxe Dropdown
+ToggleLib:CreateDropdown("Select Pickaxe", pickaxeList, function(Option)
+    selectedPickaxe = Option
 end)
 
--- 3. Toggle (Auto Luck)
-ToggleLib:CreateToggle("Auto Luck", function(Value)
-    getgenv().AutoLuck = Value
+-- 1. Toggle (Auto Mine)
+ToggleLib:CreateToggle("Auto Mine", function(Value)
+    getgenv().AutoMine = Value
 
     if Value then
         task.spawn(function()
 
-            local luckRemote = game:GetService("ReplicatedStorage")
-                :WaitForChild("E&F")
-                :WaitForChild("Luck")
-                :WaitForChild("DoLuckRE")
+            local mineRemote = game:GetService("ReplicatedStorage")
+                :WaitForChild("Remotes")
+                :WaitForChild("MineRequest")
 
-            while getgenv().AutoLuck do
+            local cubesFolder = workspace:WaitForChild("Cubes")
+            local player = game.Players.LocalPlayer
+
+            while getgenv().AutoMine do
                 pcall(function()
 
-                    luckRemote:FireServer(selectedEgg, luckAmount)
+                    if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                        local hrp = player.Character.HumanoidRootPart
+
+                        -- Tüm cube'ları mesafeye göre sırala
+                        local cubesWithDistance = {}
+
+                        for _, cube in pairs(cubesFolder:GetChildren()) do
+                            if cube:IsA("BasePart") or cube:IsA("Model") then
+                                local position = nil
+
+                                if cube:IsA("BasePart") then
+                                    position = cube.Position
+                                elseif cube:IsA("Model") and cube.PrimaryPart then
+                                    position = cube.PrimaryPart.Position
+                                elseif cube:IsA("Model") then
+                                    local part = cube:FindFirstChildWhichIsA("BasePart")
+                                    if part then
+                                        position = part.Position
+                                    end
+                                end
+
+                                if position then
+                                    local distance = (hrp.Position - position).Magnitude
+                                    table.insert(cubesWithDistance, {cube = cube, distance = distance})
+                                end
+                            end
+                        end
+
+                        -- Mesafeye göre sırala
+                        table.sort(cubesWithDistance, function(a, b)
+                            return a.distance < b.distance
+                        end)
+
+                        -- En yakın 10 cube için firelay
+                        for i = 1, math.min(10, #cubesWithDistance) do
+                            mineRemote:FireServer(cubesWithDistance[i].cube, selectedPickaxe)
+                        end
+                    end
 
                 end)
 
